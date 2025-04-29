@@ -5,7 +5,7 @@ option(USE_ARM "Use ARM architecture" OFF)
 project(INFOMOV VERSION 1.0
         DESCRIPTION "Exercises for the INFOMOV lecture"
         LANGUAGES CXX)
-    
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -76,3 +76,4 @@ add_custom_target(copy_assets ALL
 
 # Ensure that your main target triggers the asset copy
 add_dependencies(GAME copy_assets)
+target_compile_options(GAME PRIVATE "-g3")
