@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstdlib>
+#include <new>
 
 #define LINES 750
 #define LINEFILE "lines750.dat"
@@ -23,9 +24,18 @@ Timer timer;
 #define COLORREF DWORD
 #define __int64 long long
 #define RGB(r, g, b) (((DWORD)(BYTE)r) | ((DWORD)((BYTE)g) << 8) | ((DWORD)((BYTE)b) << 16))
-#define GetRValue(RGBColor) (BYTE)(RGBColor)
-#define GetGValue(RGBColor) (BYTE)(((uint)RGBColor) >> 8)
-#define GetBValue(RGBColor) (BYTE)(((uint)RGBColor) >> 16)
+
+#if 0
+// Peak: 167679
+#define GetRValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF))
+#define GetGValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF << 8))
+#define GetBValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF << 16))
+#else
+// Peak: 17XXXX
+#define GetRValue(RGBColor) (std::uint8_t)(RGBColor)
+#define GetGValue(RGBColor) (std::uint8_t)((((uint)RGBColor) >> 8) & 0xFF)
+#define GetBValue(RGBColor) (std::uint8_t)((((uint)RGBColor) >> 16) & 0xFF)
+#endif
 
 // -----------------------------------------------------------
 // Mutate
@@ -106,6 +116,8 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   BYTE bl = GetBValue(clrLine);
   double grayl = rl * 0.299 + gl * 0.587 + bl * 0.114;
 
+
+  static constexpr double inverse = 1.0 / 255.0;
   /* Is this an X-major or Y-major line? */
   if (DeltaY > DeltaX) {
     /* Y-major line; calculate 16-bit fixed-point fractional part of a
@@ -133,7 +145,10 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       BYTE gb = GetGValue(clrBackGround);
       BYTE bb = GetBValue(clrBackGround);
       double grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
-      double val = ((double)(grayl < grayb ? Weighting : (Weighting ^ 255))) / 255.0;
+      // 0 or 255
+      std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
+      double val = (Weighting ^ mask) * inverse;
+
       BYTE rr = (val * std::abs(rb - rl) + rl);
       BYTE gr = (val * std::abs(gb - gl) + gl);
       BYTE br = (val * std::abs(bb - bl) + bl);
@@ -144,7 +159,8 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       gb = GetGValue(clrBackGround);
       bb = GetBValue(clrBackGround);
       grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
-      val = ((double)(grayl < grayb ? Weighting : (Weighting ^ 255))) / 255.0;
+      mask = -(std::uint8_t)(grayl < grayb);
+      val = (Weighting ^ mask) * inverse;
 
       rr = (val * std::abs(rb - rl) + rl);
       gr = (val * std::abs(gb - gl) + gl);
@@ -164,10 +180,7 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   while (--DeltaX) {
     ErrorAccTemp = ErrorAcc; /* remember currrent accumulated error */
     ErrorAcc += ErrorAdj;    /* calculate error for next pixel */
-    if (ErrorAcc <= ErrorAccTemp) {
-      /* The error accumulator turned over, so advance the Y coord */
-      Y0++;
-    }
+    Y0 += ErrorAcc <= ErrorAccTemp;
     X0 += XDir; /* X-major, so always advance X */
                 /* The IntensityBits most significant bits of ErrorAcc give us the
                 intensity weighting for this pixel, and the complement of the
@@ -175,15 +188,17 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
     Weighting = ErrorAcc >> 8;
 
     COLORREF clrBackGround = screen->pixels[X0 *SCRHEIGHT + Y0];
-    BYTE rb = GetRValue(clrBackGround);
-    BYTE gb = GetGValue(clrBackGround);
-    BYTE bb = GetBValue(clrBackGround);
+    std::uint8_t rb = GetRValue(clrBackGround);
+    std::uint8_t gb = GetGValue(clrBackGround);
+    std::uint8_t bb = GetBValue(clrBackGround);
     double grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
 
-    double val = ((double)(grayl < grayb ? Weighting : (Weighting ^ 255))) / 255.0;
-    BYTE rr = (val * std::abs(rb - rl) + rl);
-    BYTE gr = (val * std::abs(gb - gl) + gl);
-    BYTE br = (val * std::abs(bb - bl) + bl);
+    std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
+    std::uint8_t val = (Weighting ^ mask) * inverse;
+    std::uint8_t rr = (val * std::abs(rb - rl) + rl);
+    std::uint8_t gr = (val * std::abs(gb - gl) + gl);
+    std::uint8_t br = (val * std::abs(bb - bl) + bl);
+
 
     screen->Plot(X0, Y0, RGB(rr, gr, br));
 
@@ -192,7 +207,8 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
     gb = GetGValue(clrBackGround);
     bb = GetBValue(clrBackGround);
     grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
-    val = ((double)(grayl < grayb ? Weighting : (Weighting ^ 255))) / 255.0;
+    mask = -(std::uint8_t)(grayl < grayb);
+    val = (Weighting ^ mask) * inverse;
     rr = (val * std::abs(rb - rl) + rl);
     gr = (val * std::abs(gb - gl) + gl);
     br = (val * std::abs(bb - bl) + bl);
@@ -213,8 +229,8 @@ int Game::Evaluate() {
   constexpr uint count = SCRWIDTH * SCRHEIGHT;
   std::int64_t diff = 0;
   for (std::uint32_t i = 0; i < count; i++) {
-    std::uint32_t src = screen->pixels[i];
-    std::uint32_t ref = reference->pixels[i];
+    alignas(std::hardware_constructive_interference_size) std::uint32_t src = screen->pixels[i];
+    alignas(std::hardware_constructive_interference_size) std::uint32_t ref = reference->pixels[i];
     std::uint32_t r0 = (src >> 16) & 0xFF;
     std::uint32_t g0 = (src >> 8) & 0xFF;
     std::uint32_t b0 = src & 255;

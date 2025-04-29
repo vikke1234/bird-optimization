@@ -76,4 +76,4 @@ add_custom_target(copy_assets ALL
 
 # Ensure that your main target triggers the asset copy
 add_dependencies(GAME copy_assets)
-target_compile_options(GAME PRIVATE "-g3")
+target_compile_options(GAME PRIVATE "-O3" "-march=native" "-g3" "-flto")
