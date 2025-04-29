@@ -3,6 +3,7 @@
 // IGAD/NHTV/BUAS/UU - Jacco Bikker - 2006-2023
 
 #include "precomp.h"
+#include <cstdio>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_PSD
@@ -97,25 +98,54 @@ void Surface::Bar( int x1, int y1, int x2, int y2, uint c )
 }
 
 // Surface::Print: Print some text with the hard-coded mini-font.
-void Surface::Print( const char* s, int x1, int y1, uint c )
+void Surface::Print( const char* s,
+                     int x1, int y1,
+                     uint  c,
+                     int   S /*=2*/ )
 {
-	if (!fontInitialized)
-	{
-		// we will initialize the font on first use
-		InitCharset();
-		fontInitialized = true;
-	}
-	uint* t = pixels + x1 + y1 * width;
-	for (int i = 0; i < (int)(strlen( s )); i++, t += 6)
-	{
-		int pos = 0;
-		if ((s[i] >= 'A') && (s[i] <= 'Z')) pos = transl[(unsigned short)(s[i] - ('A' - 'a'))];
-		else pos = transl[(unsigned short)s[i]];
-		uint* a = t;
-		const char* u = (const char*)font[pos];
-		for (int v = 0; v < 5; v++, u++, a += width)
-			for (int h = 0; h < 5; h++) if (*u++ == 'o') *(a + h) = c, * (a + h + width) = 0;
-	}
+    if (!fontInitialized) {
+        InitCharset();
+        fontInitialized = true;
+    }
+
+	// un-scaled pixel between glyphs
+    constexpr int glyphW = 5, glyphH = 5, spacing = 1;
+
+    // for each character in the string
+    for ( int i = 0; s[i]; i++ ) {
+        // figure out which glyph index to use
+        int pos;
+        if ( s[i]>='A' && s[i]<='Z' )
+            pos = transl[(unsigned char)(s[i] - ('A'-'a'))];
+        else
+            pos = transl[(unsigned char)s[i]];
+
+        // pointer into your 5×5 bitmap array
+        const char* bits = (const char*)font[pos];
+
+        // origin of this glyph in screen-space
+        int originX = x1 + i * ((glyphW+spacing)*S);
+        int originY = y1;
+
+        // for each row of the 5×5 bitmap
+        for ( int row = 0; row < glyphH; row++ ) {
+            // for each column of the 5×5 bitmap
+            for ( int col = 0; col < glyphW; col++ ) {
+                // each row in your bitmap strings has a trailing '\0'
+                // so index = row*(glyphW+1) + col
+                if ( bits[row*(glyphW+1) + col] == 'o' ) {
+                    // draw an S×S block at (col, row)
+                    for ( int dy = 0; dy < S; dy++ ) {
+                        for ( int dx = 0; dx < S; dx++ ) {
+                            int px = originX + col*S + dx;
+                            int py = originY + row*S + dy;
+                            pixels[py*width + px] = c;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 // Surface::Line: Draw a line between the specified screen coordinates.

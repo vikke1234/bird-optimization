@@ -263,47 +263,45 @@ void Game::Init()
 // -----------------------------------------------------------
 // Main application tick function
 // -----------------------------------------------------------
-void Game::Tick( float /* deltaTime */ )
-{
-	timer.reset();
-	int lineCount = 0;
-	int iterCount = 0;
-	// draw up to lidx
-	memset( screen->pixels, 255, SCRWIDTH * SCRHEIGHT * 4 );
-	for (int j = 0; j < lidx; j++, lineCount++)
-	{
-		DrawWuLine( screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j] );
-	}
-	int base = lidx;
-	screen->CopyTo( backup, 0, 0 );
-	// iterate and draw from lidx to end
-	for (int k = 0; k < ITERATIONS; k++)
-	{
-		backup->CopyTo( screen, 0, 0 );
-		MutateLine( lidx );
-		for (int j = base; j < LINES; j++, lineCount++)
-		{
-			DrawWuLine( screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j] );
-		}
-		int diff = Evaluate();
-		if (diff < fitness) fitness = diff; else UndoMutation( lidx );
-		lidx = (lidx + 1) % LINES;
-		iterCount++;
-	}
-	// stats
-	char t[128];
-	float elapsed = timer.elapsed();
-	float lps = (float)lineCount / elapsed;
-	peak = max( lps, peak );
-	sprintf( t, "fitness: %i", fitness );
-	screen->Bar( 0, SCRHEIGHT - 33, 130, SCRHEIGHT - 1, 0 );
-	screen->Print( t, 2, SCRHEIGHT - 24, 0xffffff );
-	sprintf( t, "lps:     %5.2fK", lps );
-	screen->Print( t, 2, SCRHEIGHT - 16, 0xffffff );
-	sprintf( t, "ips:     %5.2f", (iterCount * 1000) / elapsed );
-	screen->Print( t, 2, SCRHEIGHT - 8, 0xffffff );
-	sprintf( t, "peak:    %5.2f", peak );
-	screen->Print( t, 2, SCRHEIGHT - 32, 0xffffff );
+void Game::Tick(float /* deltaTime */) {
+  timer.reset();
+  int lineCount = 0;
+  int iterCount = 0;
+  // draw up to lidx
+  memset(screen->pixels, 255, SCRWIDTH * SCRHEIGHT * 4);
+  for (int j = 0; j < lidx; j++, lineCount++) {
+    DrawWuLine(screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j]);
+  }
+  int base = lidx;
+  screen->CopyTo(backup, 0, 0);
+  // iterate and draw from lidx to end
+  for (int k = 0; k < ITERATIONS; k++) {
+    backup->CopyTo(screen, 0, 0);
+    MutateLine(lidx);
+    for (int j = base; j < LINES; j++, lineCount++) {
+      DrawWuLine(screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j]);
+    }
+    int diff = Evaluate();
+    if (diff < fitness)
+      fitness = diff;
+    else
+      UndoMutation(lidx);
+    lidx = (lidx + 1) % LINES;
+    iterCount++;
+  }
+  // stats
+  char t[128];
+  float elapsed = timer.elapsed();
+  float lps = (float)lineCount / elapsed;
+  peak = max(lps, peak);
+  sprintf(t, "fitness: %i", fitness);
+  screen->Print(t, 2, SCRHEIGHT - 72, 0xFF);
+  sprintf(t, "lps:     %5.2fK", lps);
+  screen->Print(t, 2, SCRHEIGHT - 54, 0xFF);
+  sprintf(t, "ips:     %5.2f", (iterCount * 1000) / elapsed);
+  screen->Print(t, 2, SCRHEIGHT - 36, 0xFF);
+  sprintf(t, "peak:    %5.2f", peak);
+  screen->Print(t, 2, SCRHEIGHT - 18, 0xFF);
 }
 
 // -----------------------------------------------------------
