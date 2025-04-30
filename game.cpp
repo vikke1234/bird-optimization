@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstdlib>
+#include <cmath>
 #include <new>
+#include <xmmintrin.h>
 
 #define LINES 750
 #define LINEFILE "lines750.dat"
@@ -25,17 +27,9 @@ Timer timer;
 #define __int64 long long
 #define RGB(r, g, b) (((DWORD)(BYTE)r) | ((DWORD)((BYTE)g) << 8) | ((DWORD)((BYTE)b) << 16))
 
-#if 0
-// Peak: 167679
-#define GetRValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF))
-#define GetGValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF << 8))
-#define GetBValue(RGBColor) (BYTE)(_pext_u32((RGBColor), 0xFF << 16))
-#else
-// Peak: 17XXXX
 #define GetRValue(RGBColor) (std::uint8_t)(RGBColor)
 #define GetGValue(RGBColor) (std::uint8_t)((((uint)RGBColor) >> 8) & 0xFF)
 #define GetBValue(RGBColor) (std::uint8_t)((((uint)RGBColor) >> 16) & 0xFF)
-#endif
 
 // -----------------------------------------------------------
 // Mutate
@@ -73,7 +67,6 @@ void UndoMutation(int i) {
   lx2[i] = x2_, ly2[i] = y2_;
   lc[i] = c_;
 }
-
 // -----------------------------------------------------------
 // DrawWuLine
 // Anti-aliased line rendering.
@@ -111,13 +104,11 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   /* Line is not horizontal, diagonal, or vertical */
   unsigned short ErrorAcc = 0; /* initialize the line error accumulator to 0 */
 
-  BYTE rl = GetRValue(clrLine);
-  BYTE gl = GetGValue(clrLine);
-  BYTE bl = GetBValue(clrLine);
-  double grayl = rl * 0.299 + gl * 0.587 + bl * 0.114;
+  std::int32_t rl = GetRValue(clrLine);
+  std::int32_t gl = GetGValue(clrLine);
+  std::int32_t bl = GetBValue(clrLine);
+  std::uint8_t grayl = (77 * rl + 150 * gl + 29 * bl) >> 8;
 
-
-  static constexpr double inverse = 1.0 / 255.0;
   /* Is this an X-major or Y-major line? */
   if (DeltaY > DeltaX) {
     /* Y-major line; calculate 16-bit fixed-point fractional part of a
@@ -127,12 +118,13 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
 
     /* Draw all pixels other than the first and last */
     while (--DeltaY) {
+      _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
+      _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
+      _mm_prefetch(&screen->pixels[(X0 + 3) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
+      _mm_prefetch(&screen->pixels[X0 * SCRHEIGHT + Y0 + XDir], _MM_HINT_T0);
       ErrorAccTemp = ErrorAcc; /* remember currrent accumulated error */
       ErrorAcc += ErrorAdj;    /* calculate error for next pixel */
-      if (ErrorAcc <= ErrorAccTemp) {
-        /* The error accumulator turned over, so advance the X coord */
-        X0 += XDir;
-      }
+      X0 += (ErrorAcc <= ErrorAccTemp) * XDir;
       Y0++; /* Y-major, so always advance Y */
 
       /* The IntensityBits most significant bits of ErrorAcc give us the
@@ -141,13 +133,13 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       Weighting = ErrorAcc >> 8;
 
       COLORREF clrBackGround = screen->pixels[X0 * SCRHEIGHT + Y0];
-      BYTE rb = GetRValue(clrBackGround);
-      BYTE gb = GetGValue(clrBackGround);
-      BYTE bb = GetBValue(clrBackGround);
-      double grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
+      std::int32_t rb = GetRValue(clrBackGround);
+      std::int32_t gb = GetGValue(clrBackGround);
+      std::int32_t bb = GetBValue(clrBackGround);
+      std::uint8_t grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
       // 0 or 255
       std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
-      double val = (Weighting ^ mask) * inverse;
+      std::uint32_t val = (Weighting ^ mask) >> 8;
 
       BYTE rr = (val * std::abs(rb - rl) + rl);
       BYTE gr = (val * std::abs(gb - gl) + gl);
@@ -158,9 +150,9 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       rb = GetRValue(clrBackGround);
       gb = GetGValue(clrBackGround);
       bb = GetBValue(clrBackGround);
-      grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
+      grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
       mask = -(std::uint8_t)(grayl < grayb);
-      val = (Weighting ^ mask) * inverse;
+      val = (Weighting ^ mask) >> 8;
 
       rr = (val * std::abs(rb - rl) + rl);
       gr = (val * std::abs(gb - gl) + gl);
@@ -187,14 +179,18 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
     weighting for the paired pixel */
     Weighting = ErrorAcc >> 8;
 
+    _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0], _MM_HINT_T0);
+    _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
+    _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0], _MM_HINT_T0);
+    _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
     COLORREF clrBackGround = screen->pixels[X0 *SCRHEIGHT + Y0];
-    std::uint8_t rb = GetRValue(clrBackGround);
-    std::uint8_t gb = GetGValue(clrBackGround);
-    std::uint8_t bb = GetBValue(clrBackGround);
-    double grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
+    std::int32_t rb = GetRValue(clrBackGround);
+    std::int32_t gb = GetGValue(clrBackGround);
+    std::int32_t bb = GetBValue(clrBackGround);
+    std::uint8_t grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
 
     std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
-    std::uint8_t val = (Weighting ^ mask) * inverse;
+    std::uint8_t val = (Weighting ^ mask) >> 8;
     std::uint8_t rr = (val * std::abs(rb - rl) + rl);
     std::uint8_t gr = (val * std::abs(gb - gl) + gl);
     std::uint8_t br = (val * std::abs(bb - bl) + bl);
@@ -206,9 +202,9 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
     rb = GetRValue(clrBackGround);
     gb = GetGValue(clrBackGround);
     bb = GetBValue(clrBackGround);
-    grayb = rb * 0.299 + gb * 0.587 + bb * 0.114;
+    grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
     mask = -(std::uint8_t)(grayl < grayb);
-    val = (Weighting ^ mask) * inverse;
+    val = (Weighting ^ mask) >> 8;
     rr = (val * std::abs(rb - rl) + rl);
     gr = (val * std::abs(gb - gl) + gl);
     br = (val * std::abs(bb - bl) + bl);
@@ -221,16 +217,7 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   screen->Plot(X1, Y1, clrLine);
 }
 
-// -----------------------------------------------------------
-// Fitness evaluation
-// Compare current generation against reference image.
-// -----------------------------------------------------------
-int Game::Evaluate() {
-  constexpr uint count = SCRWIDTH * SCRHEIGHT;
-  std::int64_t diff = 0;
-  for (std::uint32_t i = 0; i < count; i++) {
-    alignas(std::hardware_constructive_interference_size) std::uint32_t src = screen->pixels[i];
-    alignas(std::hardware_constructive_interference_size) std::uint32_t ref = reference->pixels[i];
+inline std::int64_t calcDiff(std::uint32_t src, std::uint32_t ref) {
     std::uint32_t r0 = (src >> 16) & 0xFF;
     std::uint32_t g0 = (src >> 8) & 0xFF;
     std::uint32_t b0 = src & 255;
@@ -244,7 +231,21 @@ int Game::Evaluate() {
     std::uint32_t db = b0 - b1;
     // calculate squared color difference;
     // take into account eye sensitivity to red, green and blue
-    diff += 3 * dr * dr + 6 * dg * dg + db * db;
+    return 3 * dr * dr + 6 * dg * dg + db * db;
+}
+// -----------------------------------------------------------
+// Fitness evaluation
+// Compare current generation against reference image.
+// -----------------------------------------------------------
+int Game::Evaluate() {
+  constexpr uint count = SCRWIDTH * SCRHEIGHT;
+  const auto& refpix = reference->pixels;
+  const auto& pixels = screen->pixels;
+  alignas(std::hardware_constructive_interference_size) std::int64_t diff = 0;
+  for (std::uint32_t i = 0; i < count; i++) {
+    alignas(std::hardware_constructive_interference_size) std::uint32_t ref = refpix[i];
+    alignas(std::hardware_constructive_interference_size) std::uint32_t src = pixels[i];
+    diff += calcDiff(src, ref);
   }
   return (int)(diff >> 5);
 }
