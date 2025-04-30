@@ -46,7 +46,7 @@ using namespace std;
 #define FREE64(x) _aligned_free(x)
 #else
 #define ALIGN(x) __attribute__((aligned(x)))
-#define MALLOC64(x) ((x) == 0 ? 0 : aligned_alloc(64, (x)))
+#define MALLOC64(x) ((x) == 0 ? 0 : aligned_alloc(std::hardware_constructive_interference_size, (x)))
 #define FREE64(x) free(x)
 #endif
 #if defined(__GNUC__) && (__GNUC__ >= 4)

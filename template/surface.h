@@ -3,6 +3,7 @@
 // IGAD/NHTV/BUAS/UU - Jacco Bikker - 2006-2023
 
 #pragma once
+#include <cstdint>
 #include <new>
 
 namespace Tmpl8 {
@@ -68,7 +69,7 @@ public:
 	void Box( int x1, int y1, int x2, int y2, uint color );
 	void Bar( int x1, int y1, int x2, int y2, uint color );
 	// attributes
-	alignas(std::hardware_constructive_interference_size) uint* pixels = 0;
+	alignas(std::hardware_constructive_interference_size) std::uint32_t* pixels = 0;
 	int width = 0, height = 0;
 	bool ownBuffer = false;
 	// static data for the hardcoded font
