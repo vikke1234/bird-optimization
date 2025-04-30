@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstdint>
 namespace Tmpl8
 {
 
@@ -13,7 +14,7 @@ public:
 	// game flow methods
 	void Init();
 	void Tick( float deltaTime );
-	int Evaluate();
+	std::int64_t Evaluate();
 	void Shutdown();
 	// input handling
 	void MouseUp( int ) { /* implement if you want to detect mouse button presses */ }

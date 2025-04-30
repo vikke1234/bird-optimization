@@ -15,7 +15,7 @@ int lx1[LINES], ly1[LINES], lx2[LINES], ly2[LINES]; // lines: start and end coor
 uint lc[LINES];                                     // lines: colors
 int x1_, y1_, x2_, y2_;                             // room for storing line backup
 uint c_;                                            // line color backup
-int fitness;                                        // similarity to reference image
+std::int64_t fitness;                                        // similarity to reference image
 int lidx = 0;                                       // current line to be mutated
 float peak = 0;                                     // peak line rendering performance
 Surface *reference, *backup;                        // surfaces
@@ -66,6 +66,22 @@ void UndoMutation(int i) {
   lx1[i] = x1_, ly1[i] = y1_;
   lx2[i] = x2_, ly2[i] = y2_;
   lc[i] = c_;
+}
+
+inline void plotLine(Surface *screen, std::uint32_t x, std::uint32_t y, std::int32_t rl, std::int32_t gl, std::int32_t bl, std::uint32_t grayl, std::uint32_t weight) {
+      COLORREF clrBackGround = screen->pixels[x * SCRHEIGHT + y];
+      std::int32_t rb = GetRValue(clrBackGround);
+      std::int32_t gb = GetGValue(clrBackGround);
+      std::int32_t bb = GetBValue(clrBackGround);
+      std::uint8_t grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
+      // 0 or 255
+      std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
+      std::uint32_t val = (weight ^ mask) >> 8;
+
+      BYTE rr = (val * std::abs(rb - rl) + rl);
+      BYTE gr = (val * std::abs(gb - gl) + gl);
+      BYTE br = (val * std::abs(bb - bl) + bl);
+      screen->Plot(x, y, RGB(rr, gr, br));
 }
 // -----------------------------------------------------------
 // DrawWuLine
@@ -118,10 +134,6 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
 
     /* Draw all pixels other than the first and last */
     while (--DeltaY) {
-      _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
-      _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
-      _mm_prefetch(&screen->pixels[(X0 + 3) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
-      _mm_prefetch(&screen->pixels[X0 * SCRHEIGHT + Y0 + XDir], _MM_HINT_T0);
       ErrorAccTemp = ErrorAcc; /* remember currrent accumulated error */
       ErrorAcc += ErrorAdj;    /* calculate error for next pixel */
       X0 += (ErrorAcc <= ErrorAccTemp) * XDir;
@@ -131,33 +143,8 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       intensity weighting for this pixel, and the complement of the
       weighting for the paired pixel */
       Weighting = ErrorAcc >> 8;
-
-      COLORREF clrBackGround = screen->pixels[X0 * SCRHEIGHT + Y0];
-      std::int32_t rb = GetRValue(clrBackGround);
-      std::int32_t gb = GetGValue(clrBackGround);
-      std::int32_t bb = GetBValue(clrBackGround);
-      std::uint8_t grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
-      // 0 or 255
-      std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
-      std::uint32_t val = (Weighting ^ mask) >> 8;
-
-      BYTE rr = (val * std::abs(rb - rl) + rl);
-      BYTE gr = (val * std::abs(gb - gl) + gl);
-      BYTE br = (val * std::abs(bb - bl) + bl);
-      screen->Plot(X0, Y0, RGB(rr, gr, br));
-
-      clrBackGround = screen->pixels[X0 * SCRHEIGHT + XDir + Y0];
-      rb = GetRValue(clrBackGround);
-      gb = GetGValue(clrBackGround);
-      bb = GetBValue(clrBackGround);
-      grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
-      mask = -(std::uint8_t)(grayl < grayb);
-      val = (Weighting ^ mask) >> 8;
-
-      rr = (val * std::abs(rb - rl) + rl);
-      gr = (val * std::abs(gb - gl) + gl);
-      br = (val * std::abs(bb - bl) + bl);
-      screen->Plot(X0 + XDir, Y0, RGB(rr, gr, br));
+      plotLine(screen, X0, Y0, rl, gl, bl, grayl, Weighting);
+      plotLine(screen, X0, Y0 + XDir, rl, gl, bl, grayl, Weighting);
     }
     /* Draw the final pixel, which is always exactly intersected by the line
     and so needs no weighting */
@@ -179,37 +166,8 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
     weighting for the paired pixel */
     Weighting = ErrorAcc >> 8;
 
-    _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0], _MM_HINT_T0);
-    _mm_prefetch(&screen->pixels[(X0 + 1) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
-    _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0], _MM_HINT_T0);
-    _mm_prefetch(&screen->pixels[(X0 + 2) * SCRHEIGHT + Y0+1], _MM_HINT_T0);
-    COLORREF clrBackGround = screen->pixels[X0 *SCRHEIGHT + Y0];
-    std::int32_t rb = GetRValue(clrBackGround);
-    std::int32_t gb = GetGValue(clrBackGround);
-    std::int32_t bb = GetBValue(clrBackGround);
-    std::uint8_t grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
-
-    std::uint8_t mask = -(std::uint8_t)(grayl < grayb);
-    std::uint8_t val = (Weighting ^ mask) >> 8;
-    std::uint8_t rr = (val * std::abs(rb - rl) + rl);
-    std::uint8_t gr = (val * std::abs(gb - gl) + gl);
-    std::uint8_t br = (val * std::abs(bb - bl) + bl);
-
-
-    screen->Plot(X0, Y0, RGB(rr, gr, br));
-
-    clrBackGround = screen->pixels[X0 * SCRHEIGHT + (Y0 + 1)];
-    rb = GetRValue(clrBackGround);
-    gb = GetGValue(clrBackGround);
-    bb = GetBValue(clrBackGround);
-    grayb = (77 * rl + 150 * gl + 29 * bl) >> 8;
-    mask = -(std::uint8_t)(grayl < grayb);
-    val = (Weighting ^ mask) >> 8;
-    rr = (val * std::abs(rb - rl) + rl);
-    gr = (val * std::abs(gb - gl) + gl);
-    br = (val * std::abs(bb - bl) + bl);
-
-    screen->Plot(X0, Y0 + 1, RGB(rr, gr, br));
+    plotLine(screen, X0, Y0, rl, gl, bl, grayl, Weighting);
+    plotLine(screen, X0, Y0 + 1, rl, gl, bl, grayl, Weighting);
   }
 
   /* Draw the final pixel, which is always exactly intersected by the line
@@ -237,15 +195,20 @@ inline std::int64_t calcDiff(std::uint32_t src, std::uint32_t ref) {
 // Fitness evaluation
 // Compare current generation against reference image.
 // -----------------------------------------------------------
-int Game::Evaluate() {
+std::int64_t Game::Evaluate() {
   constexpr uint count = SCRWIDTH * SCRHEIGHT;
   const auto& refpix = reference->pixels;
   const auto& pixels = screen->pixels;
   alignas(std::hardware_constructive_interference_size) std::int64_t diff = 0;
-  for (std::uint32_t i = 0; i < count; i++) {
-    alignas(std::hardware_constructive_interference_size) std::uint32_t ref = refpix[i];
-    alignas(std::hardware_constructive_interference_size) std::uint32_t src = pixels[i];
-    diff += calcDiff(src, ref);
+  for (std::uint32_t i = 0; i < count; i+=8) {
+    diff += calcDiff(pixels[i],   refpix[i]);
+    diff += calcDiff(pixels[i+1], refpix[i+1]);
+    diff += calcDiff(pixels[i+2], refpix[i+2]);
+    diff += calcDiff(pixels[i+3], refpix[i+3]);
+    diff += calcDiff(pixels[i+4], refpix[i+4]);
+    diff += calcDiff(pixels[i+5], refpix[i+5]);
+    diff += calcDiff(pixels[i+6], refpix[i+6]);
+    diff += calcDiff(pixels[i+7], refpix[i+7]);
   }
   return (int)(diff >> 5);
 }
@@ -296,7 +259,7 @@ void Game::Tick(float /* deltaTime */) {
     for (int j = base; j < LINES; j++, lineCount++) {
       DrawWuLine(screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j]);
     }
-    int diff = Evaluate();
+    std::int64_t diff = Evaluate();
     if (diff < fitness)
       fitness = diff;
     else
