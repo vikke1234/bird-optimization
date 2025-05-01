@@ -3,7 +3,9 @@
 // IGAD/NHTV/BUAS/UU - Jacco Bikker - 2006-2023
 
 #include "precomp.h"
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_NO_PSD
@@ -64,7 +66,7 @@ void Surface::Clear( uint c )
 {
 	// WARNING: not the fastest way to do this.
 	const int s = width * height;
-	for (int i = 0; i < s; i++) pixels[i] = c;
+	std::memset(pixels, c, width * height * sizeof(std::uint32_t));
 }
 
 void Surface::Plot( int x, int y, uint c )
@@ -184,10 +186,14 @@ void Surface::Line( float x1, float y1, float x2, float y2, uint c )
 // location. With clipping.
 void Surface::CopyTo( Surface* d, int x, int y )
 {
+	// Offsets are not used, only called with 0, 0
+	memcpy(d->pixels, pixels, width * height * sizeof(std::uint32_t));
+	/*
 	uint* dst = d->pixels;
 	uint* src = pixels;
 	if ((src) && (dst))
 	{
+
 		int srcwidth = width;
 		int srcheight = height;
 		int dstwidth = d->width;
@@ -205,7 +211,7 @@ void Surface::CopyTo( Surface* d, int x, int y )
 				dst += dstwidth, src += width;
 			}
 		}
-	}
+	}*/
 }
 
 void Surface::SetChar( int c, const char* c1, const char* c2, const char* c3, const char* c4, const char* c5 )
