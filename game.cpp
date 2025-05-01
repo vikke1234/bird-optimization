@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <cmath>
+#include <iostream>
 #include <new>
 #include <xmmintrin.h>
 
@@ -90,7 +91,7 @@ inline void plotLine(Surface *screen, std::uint32_t x, std::uint32_t y, std::int
 // https://www.codeproject.com/Articles/13360/Antialiasing-Wu-Algorithm
 // -----------------------------------------------------------
 void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
-                std::int32_t X1, std::int32_t Y1, std::int32_t clrLine) {
+                std::int32_t X1, std::int32_t Y1, std::int32_t lineColor) {
   /* Make sure the line runs top to bottom */
   if (Y0 > Y1) {
     std::swap(Y0, Y1);
@@ -99,7 +100,7 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
 
   /* Draw the initial pixel, which is always exactly intersected by
   the line and so needs no weighting */
-  screen->Plot(X0, Y0, clrLine);
+  screen->Plot(X0, Y0, lineColor);
 
   std::int32_t XDir, DeltaX = X1 - X0;
   if (DeltaX >= 0) {
@@ -115,14 +116,14 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   std::int32_t DeltaY = Y1 - Y0;
 
   unsigned short ErrorAdj;
-  unsigned short ErrorAccTemp, Weighting;
+  unsigned short ErrorAccTemp, weight;
 
   /* Line is not horizontal, diagonal, or vertical */
   unsigned short ErrorAcc = 0; /* initialize the line error accumulator to 0 */
 
-  std::int32_t rl = GetRValue(clrLine);
-  std::int32_t gl = GetGValue(clrLine);
-  std::int32_t bl = GetBValue(clrLine);
+  std::int32_t rl = GetRValue(lineColor);
+  std::int32_t gl = GetGValue(lineColor);
+  std::int32_t bl = GetBValue(lineColor);
   std::uint8_t grayl = (77 * rl + 150 * gl + 29 * bl) >> 8;
 
   /* Is this an X-major or Y-major line? */
@@ -142,13 +143,13 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
       /* The IntensityBits most significant bits of ErrorAcc give us the
       intensity weighting for this pixel, and the complement of the
       weighting for the paired pixel */
-      Weighting = ErrorAcc >> 8;
-      plotLine(screen, X0, Y0, rl, gl, bl, grayl, Weighting);
-      plotLine(screen, X0, Y0 + XDir, rl, gl, bl, grayl, Weighting);
+      weight = ErrorAcc >> 8;
+      plotLine(screen, X0, Y0, rl, gl, bl, grayl, weight);
+      plotLine(screen, X0, Y0 + XDir, rl, gl, bl, grayl, weight);
     }
     /* Draw the final pixel, which is always exactly intersected by the line
     and so needs no weighting */
-    screen->Plot(X1, Y1, clrLine);
+    screen->Plot(X1, Y1, lineColor);
     return;
   }
   /* It's an X-major line; calculate 16-bit fixed-point fractional part of a
@@ -164,15 +165,15 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
                 /* The IntensityBits most significant bits of ErrorAcc give us the
                 intensity weighting for this pixel, and the complement of the
     weighting for the paired pixel */
-    Weighting = ErrorAcc >> 8;
+    weight = ErrorAcc >> 8;
 
-    plotLine(screen, X0, Y0, rl, gl, bl, grayl, Weighting);
-    plotLine(screen, X0, Y0 + 1, rl, gl, bl, grayl, Weighting);
+    plotLine(screen, X0, Y0, rl, gl, bl, grayl, weight);
+    plotLine(screen, X0, Y0 + 1, rl, gl, bl, grayl, weight);
   }
 
   /* Draw the final pixel, which is always exactly intersected by the line
   and so needs no weighting */
-  screen->Plot(X1, Y1, clrLine);
+  screen->Plot(X1, Y1, lineColor);
 }
 
 inline std::int64_t calcDiff(std::uint32_t src, std::uint32_t ref) {
@@ -210,7 +211,7 @@ std::int64_t Game::Evaluate() {
     diff += calcDiff(pixels[i+6], refpix[i+6]);
     diff += calcDiff(pixels[i+7], refpix[i+7]);
   }
-  return (int)(diff >> 5);
+  return (diff >> 5);
 }
 
 // -----------------------------------------------------------
@@ -247,8 +248,9 @@ void Game::Tick(float /* deltaTime */) {
   int iterCount = 0;
   // draw up to lidx
   memset(screen->pixels, 255, SCRWIDTH * SCRHEIGHT * 4);
-  for (int j = 0; j < lidx; j++, lineCount++) {
+  for (int j = 0; j < lidx; j+=2, lineCount+=2) {
     DrawWuLine(screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j]);
+    DrawWuLine(screen, lx1[j+1], ly1[j+1], lx2[j+1], ly2[j+1], lc[j+1]);
   }
   int base = lidx;
   screen->CopyTo(backup, 0, 0);
@@ -256,8 +258,9 @@ void Game::Tick(float /* deltaTime */) {
   for (int k = 0; k < ITERATIONS; k++) {
     backup->CopyTo(screen, 0, 0);
     MutateLine(lidx);
-    for (int j = base; j < LINES; j++, lineCount++) {
+    for (int j = base; j < LINES; j+=2, lineCount+=2) {
       DrawWuLine(screen, lx1[j], ly1[j], lx2[j], ly2[j], lc[j]);
+      DrawWuLine(screen, lx1[j+1], ly1[j+1], lx2[j+1], ly2[j+1], lc[j+1]);
     }
     std::int64_t diff = Evaluate();
     if (diff < fitness)
