@@ -14,7 +14,7 @@ public:
 	// game flow methods
 	void Init();
 	void Tick( float deltaTime );
-	std::int64_t Evaluate();
+	std::uint64_t Evaluate();
 	void Shutdown();
 	// input handling
 	void MouseUp( int ) { /* implement if you want to detect mouse button presses */ }
