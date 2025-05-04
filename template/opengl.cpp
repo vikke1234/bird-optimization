@@ -71,8 +71,8 @@ void DrawQuad()
 		// generate buffers
 		static const GLfloat verts[] = {-1, 1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 0, 1, -1, 0};
 		static const GLfloat uvdata[] = {0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1};
-		static const GLfloat verts_igp[] = {0, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0};
-		static const GLfloat uvdata_igp[] = {-1, -1, 1, -1, -1, 1, 1, -1, -1, 1, 1, 1};
+		static const GLfloat verts_igp[] = {-1, 1, 0, 1, 1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 0, 1, -1, 0};
+		static const GLfloat uvdata_igp[] = {0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1};
 		GLuint vertexBuffer, UVBuffer;
 		if (IGP_detected)
 		{
