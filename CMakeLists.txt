@@ -21,6 +21,13 @@ add_executable(
     template/tmpl8math.cpp
 )
 
+if (MSVC)
+    message(FATAL_ERROR "Can not compile properly on MSVC, please use GCC/Clang. If you understand that performance will be lower on MSVC you may remove this error.")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(GAME PRIVATE "-O3" "-march=skylake" "-flto" "-funroll-loops" "-g3")
+endif()
+
+
 # ARM specific code
 if (USE_ARM)
     target_compile_definitions(GAME PRIVATE USE_ARM)
@@ -76,4 +83,3 @@ add_custom_target(copy_assets ALL
 
 # Ensure that your main target triggers the asset copy
 add_dependencies(GAME copy_assets)
-target_compile_options(GAME PRIVATE "-O3" "-march=skylake" "-flto" "-funroll-loops" "-g3")
