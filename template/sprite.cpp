@@ -70,8 +70,8 @@ void Sprite::DrawScaled( int x1, int y1, int w, int h, Surface* target )
 	{
 		int u = (int)((float)x * ((float)width / (float)w));
 		int v = (int)((float)y * ((float)height / (float)h));
-		uint color = GetBuffer()[u * height * numFrames + v ];
-		if (color & 0xffffff) target->pixels[(x1 + x) * target->height + ((y1 + y))] = color;
+		uint color = GetBuffer()[u + v * width * numFrames];
+		if (color & 0xffffff) target->pixels[x1 + x + ((y1 + y) * target->width)] = color;
 	}
 }
 

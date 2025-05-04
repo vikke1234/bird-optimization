@@ -244,23 +244,8 @@ int main()
 #if 1
 	// basic shader, no gamma correction
 	Shader *shader = new Shader(
-		"#version 330 core\n"
-		"layout(location = 0) in vec4 p;\n"
-		"layout(location = 1) in vec2 t;\n"
-		"out vec2 u;\n"
-		"void main() {\n"
-		"    u = t;\n"
-		"    // map [0,1] → [–1,1]\n"
-		"    vec2 clip = p.xy * 2.0 - 1.0;\n"
-		"    gl_Position = vec4(clip, p.z, p.w);\n"
-		"}\n",
-		"#version 330 core\n"
-		"uniform sampler2D c;\n"
-		"in vec2 u;\n"
-		"out vec4 f;\n"
-		"void main() {\n"
-		"    f = texture(c, u);\n"
-		"}\n", true);
+		"#version 330\nin vec4 p;\nin vec2 t;out vec2 u;void main(){u=t;gl_Position=p;}",
+		"#version 330\nuniform sampler2D c;in vec2 u;out vec4 f;void main(){f=/*sqrt*/(texture(c,u));}", true);
 #else
 	// fxaa shader
 	Shader *shader = new Shader(
