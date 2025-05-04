@@ -70,7 +70,7 @@ void UndoMutation(int i) {
 }
 
 inline void plotLine(Surface *screen, std::uint32_t x, std::uint32_t y, std::int32_t rl, std::int32_t gl, std::int32_t bl, std::uint32_t grayl, std::uint32_t weight) {
-      COLORREF clrBackGround = screen->pixels[x * SCRHEIGHT + y];
+      COLORREF clrBackGround = screen->pixels[x + y * SCRWIDTH];
       std::int32_t rb = GetRValue(clrBackGround);
       std::int32_t gb = GetGValue(clrBackGround);
       std::int32_t bb = GetBValue(clrBackGround);
@@ -177,39 +177,35 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
 }
 
 inline std::int64_t calcDiff(std::uint32_t src, std::uint32_t ref) {
-    std::uint32_t r0 = (src >> 16) & 0xFF;
-    std::uint32_t g0 = (src >> 8) & 0xFF;
-    std::uint32_t b0 = src & 255;
+  std::uint32_t r0 = (src >> 16) & 0xFF;
+  std::uint32_t g0 = (src >> 8) & 0xFF;
+  std::uint32_t b0 = src & 255;
 
-    std::uint32_t r1 = ref >> 16;
-    std::uint32_t g1 = (ref >> 8) & 0xFF;
-    std::uint32_t b1 = ref & 0xFF;
+  std::uint32_t r1 = ref >> 16;
+  std::uint32_t g1 = (ref >> 8) & 0xFF;
+  std::uint32_t b1 = ref & 0xFF;
 
-    std::uint32_t dr = r0 - r1;
-    std::uint32_t dg = g0 - g1;
-    std::uint32_t db = b0 - b1;
-    // calculate squared color difference;
-    // take into account eye sensitivity to red, green and blue
-    return 3 * dr * dr + 6 * dg * dg + db * db;
+  std::uint32_t dr = r0 - r1;
+  dr *= 3 * dr;
+  std::uint32_t dg = g0 - g1;
+  dg *= 6 * dg;
+  std::uint32_t db = b0 - b1;
+  db *= db;
+  // calculate squared color difference;
+  // take into account eye sensitivity to red, green and blue
+  return dr + dg + db;
 }
 // -----------------------------------------------------------
 // Fitness evaluation
 // Compare current generation against reference image.
 // -----------------------------------------------------------
-std::int64_t Game::Evaluate() {
+std::uint64_t Game::Evaluate() {
   constexpr uint count = SCRWIDTH * SCRHEIGHT;
   const auto& refpix = reference->pixels;
   const auto& pixels = screen->pixels;
   alignas(std::hardware_constructive_interference_size) std::int64_t diff = 0;
-  for (std::uint32_t i = 0; i < count; i+=8) {
-    diff += calcDiff(pixels[i],   refpix[i]);
-    diff += calcDiff(pixels[i+1], refpix[i+1]);
-    diff += calcDiff(pixels[i+2], refpix[i+2]);
-    diff += calcDiff(pixels[i+3], refpix[i+3]);
-    diff += calcDiff(pixels[i+4], refpix[i+4]);
-    diff += calcDiff(pixels[i+5], refpix[i+5]);
-    diff += calcDiff(pixels[i+6], refpix[i+6]);
-    diff += calcDiff(pixels[i+7], refpix[i+7]);
+  for (std::uint32_t i = 0; i < count; i++) {
+    diff += calcDiff(pixels[i], refpix[i]);
   }
   return (diff >> 5);
 }
