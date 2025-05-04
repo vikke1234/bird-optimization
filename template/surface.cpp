@@ -71,7 +71,6 @@ void Surface::Clear( uint c )
 
 void Surface::Plot( int x, int y, uint c )
 {
-	if (x < 0 || y < 0 || x >= width || y >= height) [[unlikely]] return;
 	pixels[x + y * width] = c;
 }
 
