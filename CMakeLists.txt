@@ -6,7 +6,7 @@ project(INFOMOV VERSION 1.0
         DESCRIPTION "Exercises for the INFOMOV lecture"
         LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -24,7 +24,14 @@ add_executable(
 if (MSVC)
     message(FATAL_ERROR "Can not compile properly on MSVC, please use GCC/Clang. If you understand that performance will be lower on MSVC you may remove this error.")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    target_compile_options(GAME PRIVATE "-O3" "-march=skylake" "-flto" "-funroll-loops" "-g3")
+    target_compile_options(GAME PRIVATE
+        "-fopt-info-vec-missed"
+        "-O3"
+        "-march=skylake"
+        "-flto=auto"
+        "-funroll-loops"
+        "-ftree-vectorize" #auto enabled at O3
+        "-g3")
 endif()
 
 

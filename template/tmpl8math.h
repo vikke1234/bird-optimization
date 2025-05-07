@@ -461,7 +461,7 @@ inline uint3 clamp( const uint3& v, const uint3& a, const uint3& b ) { return ma
 inline uint4 clamp( const uint4& v, uint a, uint b ) { return make_uint4( clamp( v.x, a, b ), clamp( v.y, a, b ), clamp( v.z, a, b ), clamp( v.w, a, b ) ); }
 inline uint4 clamp( const uint4& v, const uint4& a, const uint4& b ) { return make_uint4( clamp( v.x, a.x, b.x ), clamp( v.y, a.y, b.y ), clamp( v.z, a.z, b.z ), clamp( v.w, a.w, b.w ) ); }
 
-inline float lerp( const float a, const float b, const float t ) { return a + t * (b - a); }
+//inline float  lerp( const float a, const float b, const float t ) { return a + t * (b - a); }
 inline float2 lerp( const float2& a, const float2& b, float t ) { return a + t * (b - a); }
 inline float3 lerp( const float3& a, const float3& b, float t ) { return a + t * (b - a); }
 inline float4 lerp( const float4& a, const float4& b, float t ) { return a + t * (b - a); }
@@ -922,8 +922,8 @@ public:
 class aabb {
 public:
     aabb() = default;
-    aabb(__m128 a, __m128 b) { 
-        bmin4 = a; bmax4 = b; 
+    aabb(__m128 a, __m128 b) {
+        bmin4 = a; bmax4 = b;
         _mm_storeu_ps(bmin, bmin4);
         _mm_storeu_ps(bmax, bmax4);
         bmin[3] = bmax[3] = 0;
@@ -935,7 +935,7 @@ public:
         bmax4 = _mm_loadu_ps(bmax);
     }
     void Reset() {
-        bmin4 = _mm_set_ps1(1e34f); 
+        bmin4 = _mm_set_ps1(1e34f);
         bmax4 = _mm_set_ps1(-1e34f);
         _mm_storeu_ps(bmin, bmin4);
         _mm_storeu_ps(bmax, bmax4);

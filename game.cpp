@@ -175,39 +175,79 @@ void DrawWuLine(Surface *screen, std::int32_t X0, std::int32_t Y0,
   and so needs no weighting */
   screen->Plot(X1, Y1, lineColor);
 }
-
-inline std::int64_t calcDiff(std::uint32_t src, std::uint32_t ref) {
-  std::uint32_t r0 = (src >> 16) & 0xFF;
-  std::uint32_t g0 = (src >> 8) & 0xFF;
-  std::uint32_t b0 = src & 255;
-
-  std::uint32_t r1 = ref >> 16;
-  std::uint32_t g1 = (ref >> 8) & 0xFF;
-  std::uint32_t b1 = ref & 0xFF;
-
-  std::uint32_t dr = r0 - r1;
-  dr *= 3 * dr;
-  std::uint32_t dg = g0 - g1;
-  dg *= 6 * dg;
-  std::uint32_t db = b0 - b1;
-  db *= db;
-  // calculate squared color difference;
-  // take into account eye sensitivity to red, green and blue
-  return dr + dg + db;
+/// Computes the following:
+/// diff = c0 - c1
+/// diff *= diff
+///
+static inline __m256i compute_pow(__m256i c0, __m256i c1) {
+    __m256i diff = _mm256_sub_epi32(c0, c1);
+    __m256i pow = _mm256_mullo_epi32(diff, diff);
+    return pow;
 }
-// -----------------------------------------------------------
-// Fitness evaluation
-// Compare current generation against reference image.
-// -----------------------------------------------------------
+
+static inline __m256i manual(__m256i src, __m256i ref) {
+    __m128i m = _mm_cvtsi32_si128(0xFF);
+    __m256i mask = _mm256_broadcastd_epi32(m);
+
+    __m256i r0 = _mm256_srli_epi32(src, 16);
+    r0 = _mm256_and_si256(r0, mask);
+    __m256i g0 = _mm256_srli_epi32(src, 8);
+    g0 = _mm256_and_si256(g0, mask);
+    __m256i b0 = _mm256_and_si256(src, mask);
+
+
+    __m256i r1 = _mm256_srli_epi32(ref, 16);
+    r1 = _mm256_and_si256(r1, mask);
+    __m256i g1 = _mm256_srli_epi32(ref, 8);
+    g1 = _mm256_and_si256(g1, mask);
+    __m256i b1 = _mm256_and_si256(ref, mask);
+
+  // dr = 3 * (r0-r1)^2
+  __m256i dr2  = compute_pow(r0, r1);
+  __m256i dr2a = _mm256_slli_epi32(dr2, 1);        // 2·dr²
+  __m256i dr   = _mm256_add_epi32(dr2, dr2a);      // 3·dr²
+
+  // dg = 6 * (g0-g1)^2
+  __m256i dg2  = compute_pow(g0, g1);
+  __m256i dg4  = _mm256_slli_epi32(dg2, 2);        // 4·dg²
+  __m256i dg2a = _mm256_slli_epi32(dg2, 1);        // 2·dg²
+  __m256i dg   = _mm256_add_epi32(dg4, dg2a);      // 6·dg²
+
+    __m256i db = compute_pow(b0, b1);
+
+    return _mm256_add_epi32(_mm256_add_epi32(dr, dg), db);
+}
+
 std::uint64_t Game::Evaluate() {
-  constexpr uint count = SCRWIDTH * SCRHEIGHT;
-  const auto& refpix = reference->pixels;
-  const auto& pixels = screen->pixels;
-  alignas(std::hardware_constructive_interference_size) std::int64_t diff = 0;
-  for (std::uint32_t i = 0; i < count; i++) {
-    diff += calcDiff(pixels[i], refpix[i]);
-  }
-  return (diff >> 5);
+    const __m256i * __restrict__ refpix = (__m256i *) reference->pixels;
+    const __m256i * __restrict__ pixels = (__m256i *) screen->pixels;
+    __m256i diff = _mm256_set1_epi64x(0);
+
+    constexpr std::uint32_t count = SCRWIDTH * SCRHEIGHT / 8;
+    for (std::uint32_t i = 0; i < count; i++) {
+        if ((i * 8) % 1024 == 0) {
+            _mm_prefetch(&refpix[i+1024], _MM_HINT_T0);
+            _mm_prefetch(&pixels[i+1024], _MM_HINT_T0);
+        }
+        __m256i ref = _mm256_load_si256(&refpix[i]);
+        __m256i src = _mm256_load_si256(&pixels[i]);
+
+        __m256i d32 = manual(src, ref);
+        __m128i lo32 = _mm256_castsi256_si128(d32);
+        __m128i hi32 = _mm256_extracti128_si256(d32, 1);
+
+        // widen each to four 64-bit lanes
+        __m256i lo64 = _mm256_cvtepu32_epi64(lo32);
+        __m256i hi64 = _mm256_cvtepu32_epi64(hi32);
+
+        // accumulate
+        diff = _mm256_add_epi64(diff, lo64);
+        diff = _mm256_add_epi64(diff, hi64);
+    }
+    alignas(32) uint64_t tmp[4];
+    _mm256_store_si256((__m256i*)tmp, diff);
+    uint64_t total = tmp[0] + tmp[1] + tmp[2] + tmp[3];
+    return (total >> 5);
 }
 
 // -----------------------------------------------------------
