@@ -1,4 +1,7 @@
 # Setup
+**NOTE** There is currently a GCC bug that prevents further performance increases
+as prefetching causes vectorization to fail. See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=120162.
+
 Clone the github repository using `git clone --recursive`, to make sure you get all the submodules.
 
 If you are on Linux/Mac:
